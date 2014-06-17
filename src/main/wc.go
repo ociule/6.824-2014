@@ -18,6 +18,9 @@ func isWord(word string) bool {
 	return true
 }
 
+func isNotLetter(r rune) bool {
+    return !unicode.IsLetter(r)
+}
 // our simplified version of MapReduce does not supply a
 // key to the Map function, as in the paper; only a value,
 // which is a part of the input file contents
@@ -25,7 +28,8 @@ func Map(value string) *list.List {
 	words := strings.Fields(value)
 	out := list.New()
 	for _, word := range words {
-		if isWord(word) {
+        word = strings.TrimFunc(word, isNotLetter)
+		if len(word) > 0 && isWord(word) {
 			out.PushBack(mapreduce.KeyValue{word, "1"})
 		}
 	}
