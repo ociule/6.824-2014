@@ -2,6 +2,7 @@ package mapreduce
 
 import "container/list"
 import "fmt"
+import "time"
 
 type WorkerInfo struct {
 	address string
@@ -26,15 +27,59 @@ func (mr *MapReduce) KillWorkers() *list.List {
 	return l
 }
 
+func (mr *MapReduce) asyncSendJob(doJobsDone chan<- DoJobReply, worker string, operation JobType, nJob int, nOtherJob int) {
+        args := &DoJobArgs{}
+        args.File = mr.file
+        args.Operation = operation
+        args.JobNumber = nJob
+        args.NumOtherPhase = nOtherJob
+        var reply DoJobReply
+
+        ok := call(worker, "Worker.DoJob", args, &reply)
+        mr.FreeWorkers[worker] = struct{}{}
+        if ok == false {
+            fmt.Printf("DoJob: RPC %s DoJob error\n", worker)
+        } else {
+            doJobsDone <- reply
+        }
+}
+
+func (mr *MapReduce) SendJobsToFreeWorkers(doJobDone chan<- DoJobReply, mapJobsLeft, reduceJobsLeft int) {
+    if len(mr.FreeWorkers) > 0 && mapJobsLeft > 0 {
+        mapJob := mr.nMap - mapJobsLeft
+        var freeWorker string
+        for worker, _ := range(mr.FreeWorkers) {
+            freeWorker = worker
+        }
+
+        // The worker is no longer free
+        delete(mr.FreeWorkers, freeWorker)
+        DPrintf("sending map job %d to worker %s\n", mapJob, freeWorker)
+        go mr.asyncSendJob(doJobDone, freeWorker, Map, mapJob, mr.nReduce)
+
+    }
+}
+
 func (mr *MapReduce) RunMaster() *list.List {
-	fmt.Println("Waiting for", mr.nMap, "workers")
-	// @TODO this will not move forward unless we have enough workers
-	for len(mr.Workers) < mr.nMap {
-		worker := <-mr.registerChannel
-		wi := new(WorkerInfo)
-		wi.address = worker
-		mr.Workers[worker] = wi
-		fmt.Print(len(mr.Workers))
+    mapJobsLeft := mr.nMap
+    reduceJobsLeft := mr.nReduce
+
+    doJobDone := make(chan DoJobReply)
+	for {
+        select {
+		case worker := <-mr.registerChannel:
+		    wi := new(WorkerInfo)
+		    wi.address = worker
+		    mr.Workers[worker] = wi
+		    mr.FreeWorkers[worker] = struct{}{}
+		    fmt.Println("new worker", len(mr.Workers), worker)
+        case <- time.After(time.Millisecond * 100):
+            fmt.Println("free workers", len(mr.FreeWorkers))
+            mr.SendJobsToFreeWorkers(doJobDone, mapJobsLeft, reduceJobsLeft)
+		case _ = <-doJobDone:
+            mapJobsLeft -= 1
+            DPrintf("Job done\n")
+        }
 	}
 
 	// Send nMap map jobs to nMap workers

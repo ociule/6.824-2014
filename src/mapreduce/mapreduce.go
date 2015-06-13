@@ -34,7 +34,7 @@ import "hash/fnv"
 // which Merge() merges into a single output.
 
 // Debugging
-const Debug = 0
+const Debug = 1
 
 func DPrintf(format string, a ...interface{}) (n int, err error) {
 	if Debug > 0 {
@@ -64,6 +64,8 @@ type MapReduce struct {
 	Workers map[string]*WorkerInfo
 
 	// add any additional state here
+    // Map of free workers
+	FreeWorkers map[string]struct{}
 }
 
 func InitMapReduce(nmap int, nreduce int,
@@ -77,6 +79,7 @@ func InitMapReduce(nmap int, nreduce int,
 	mr.registerChannel = make(chan string)
 	mr.DoneChannel = make(chan bool)
 	mr.Workers = make(map[string]*WorkerInfo)
+	mr.FreeWorkers = make(map[string]struct{})
 
 	// initialize any additional state here
 	return mr

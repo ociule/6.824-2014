@@ -12,7 +12,7 @@ import "sort"
 import "strconv"
 
 const (
-	nNumber = 100000
+	nNumber = 10000 //100000
 	nMap    = 100
 	nReduce = 50
 )
@@ -22,7 +22,7 @@ const (
 
 // Split in words
 func MapFunc(value string) *list.List {
-	DPrintf("Map %v\n", value)
+	//DPrintf("Map %v\n", value)
 	res := list.New()
 	words := strings.Fields(value)
 	for _, w := range words {
@@ -35,7 +35,7 @@ func MapFunc(value string) *list.List {
 // Just return key
 func ReduceFunc(key string, values *list.List) string {
 	for e := values.Front(); e != nil; e = e.Next() {
-		DPrintf("Reduce %s %v\n", key, e.Value)
+		//DPrintf("Reduce %s %v\n", key, e.Value)
 	}
 	return ""
 }
